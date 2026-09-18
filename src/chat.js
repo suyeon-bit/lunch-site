@@ -145,6 +145,16 @@ export async function handleChat(request, env, getSession, verify = verifyChatTo
     if (raw.length > 20000) return response({ error: 'Payload Too Large' }, 413);
     event = JSON.parse(raw);
   } catch { return response({ error: 'Invalid JSON' }, 400); }
+  const chatEvent = event?.chat;
+  const addOnCommand = chatEvent?.appCommandPayload?.appCommandMetadata;
+  if (addOnCommand) {
+    if (Number(addOnCommand.appCommandId) === LUNCH_COMMAND_ID && addOnCommand.appCommandType === 'SLASH_COMMAND') {
+      return response({ hostAppDataAction: { chatDataAction: { createMessageAction: {
+        message: makeLunchCommandCard(chatEvent.user)
+      } } } });
+    }
+    return response({});
+  }
   if (isLunchCommand(event)) return response(makeLunchCommandCard(event.user));
   let room;
   if (event?.type === 'MESSAGE' && typeof event.message?.matchedUrl?.url === 'string') room = roomFromUrl(event.message.matchedUrl.url);

@@ -146,3 +146,21 @@ test('APP_COMMAND metadata uses slash type and exact ID, with authentication gat
     { ...command, appCommandMetadata: { appCommandId: 731, appCommandType: 'QUICK_COMMAND' } }
   ]) assert.deepEqual(await (await handleChat(req(invalid), db, noRead, async () => true)).json(), {});
 });
+
+test('Workspace Add-ons wrapped slash command returns a createMessageAction card first', async () => {
+  const db = { DB: {} }, noRead = () => { throw Error('command should not read D1'); };
+  const wrapped = { chat: { user: { name: 'users/12345' }, appCommandPayload: {
+    appCommandMetadata: { appCommandId: 731, appCommandType: 'SLASH_COMMAND' }
+  } } };
+  assert.equal((await handleChat(req(wrapped), db, noRead)).status, 401);
+  const result = await (await handleChat(req(wrapped), db, noRead, async () => true)).json();
+  const message = result.hostAppDataAction.chatDataAction.createMessageAction.message;
+  assert.equal(message.cardsV2[0].cardId, 'lunch-command-menu');
+  assert.deepEqual(message.privateMessageViewer, { name: 'users/12345' });
+  assert.equal(message.cardsV2[0].card.sections[0].widgets.flatMap(w => w.buttonList.buttons).length, 4);
+  assert.equal(result.cardsV2, undefined);
+  const wrong = { ...wrapped, type: 'MESSAGE', message: { slashCommand: { commandId: 731 } }, chat: { ...wrapped.chat,
+    appCommandPayload: { appCommandMetadata: { appCommandId: 2, appCommandType: 'SLASH_COMMAND' } }
+  } };
+  assert.deepEqual(await (await handleChat(req(wrong), db, noRead, async () => true)).json(), {});
+});
