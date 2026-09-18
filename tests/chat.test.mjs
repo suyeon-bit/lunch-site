@@ -106,7 +106,7 @@ test('normal site API and asset routing remain available', async () => {
 test('slash command card has four functional site destinations and no preview action', () => {
   assert.equal(LUNCH_COMMAND_ID, 731);
   const card = makeLunchCommandCard({ name: 'users/12345' });
-  assert.deepEqual(card.privateMessageViewer, { name: 'users/12345' });
+  assert.equal(card.privateMessageViewer, undefined);
   assert.equal(card.actionResponse, undefined);
   const buttons = card.cardsV2[0].card.sections[0].widgets.flatMap(widget => widget.buttonList.buttons);
   assert.deepEqual(buttons.map(button => [button.text, button.onClick.openLink.url]), [
@@ -156,7 +156,7 @@ test('Workspace Add-ons wrapped slash command returns a createMessageAction card
   const result = await (await handleChat(req(wrapped), db, noRead, async () => true)).json();
   const message = result.hostAppDataAction.chatDataAction.createMessageAction.message;
   assert.equal(message.cardsV2[0].cardId, 'lunch-command-menu');
-  assert.deepEqual(message.privateMessageViewer, { name: 'users/12345' });
+  assert.equal(message.privateMessageViewer, undefined);
   assert.equal(message.cardsV2[0].card.sections[0].widgets.flatMap(w => w.buttonList.buttons).length, 4);
   assert.equal(result.cardsV2, undefined);
   const wrong = { ...wrapped, type: 'MESSAGE', message: { slashCommand: { commandId: 731 } }, chat: { ...wrapped.chat,

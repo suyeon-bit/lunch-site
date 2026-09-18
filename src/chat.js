@@ -86,7 +86,6 @@ export function makeLunchCommandCard(user) {
       ] } }
     ] }]
   } }] };
-  if (typeof user?.name === 'string' && /^users\/[^/]+$/.test(user.name)) card.privateMessageViewer = { name: user.name };
   return card;
 }
 
