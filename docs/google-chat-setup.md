@@ -23,6 +23,20 @@
 8. Google Chat에서 앱을 찾아 테스트용 채팅방/스페이스에 추가합니다. 회사 설정이 앱 추가를 막으면 Workspace 관리자에게 해당 Chat 앱의 사용과 설치 허용을 요청합니다. 링크 미리보기는 앱이 들어간 채팅방에서만 생성됩니다.
 9. 기존 사이트에서 모임을 만들고 공유 링크를 Chat에 붙여넣습니다. URL은 반드시 `https://`로 시작해야 합니다.
 
+## `/점심` 명령어 추가
+
+기존 Google Chat API **Configuration → Commands → Add a command**에서 아래 값을 입력하고 저장합니다. 기존 **Connection settings**의 공통 HTTP endpoint URL은 그대로 `/api/chat`을 사용합니다.
+
+| 설정 항목 | 입력값 |
+| --- | --- |
+| 명령어 유형 | Slash command |
+| Slash command name | `/점심` |
+| Description | `점약 만들기, 식당·날짜 정하기, 정산 메뉴 열기` |
+| Command ID | `1` |
+| Open a dialog | 선택하지 않음 |
+
+`1`번 ID를 다른 명령에 이미 사용했다면 그 명령과 충돌하므로 기존 ID를 확인하세요. 이 코드의 `LUNCH_COMMAND_ID`는 `1`입니다. `/점심`은 명령 ID로 인식하며, 문자열이 포함된 일반 메시지는 명령으로 취급하지 않습니다. 명령에 대한 카드는 호출한 사용자에게만 표시하고, 네 버튼은 사이트의 기능 탭을 엽니다. [Google Chat 명령어 설정 문서](https://developers.google.com/workspace/chat/commands)를 참고하세요.
+
 Cloudflare에서 별도 Secret이나 D1 migration은 필요하지 않습니다. Google은 Chat 요청에 서명된 ID 토큰을 첨부하고 Worker가 Google 공개키, 발급자, 정확한 엔드포인트 대상, `chat@system.gserviceaccount.com` 이메일과 만료 시간을 검증합니다. 토큰 없이 `/api/chat`을 호출하면 401입니다. GitHub에 인증 비밀을 저장하지 않습니다.
 
 ## 설치 및 관리자 승인
@@ -41,5 +55,6 @@ Cloudflare에서 별도 Secret이나 D1 migration은 필요하지 않습니다. 
 6. 0명 모임, 여러 명 모임, 날짜 투표, 식당 투표를 순서대로 확인합니다.
 7. 웹사이트에서 투표를 바꾼 뒤 Chat 카드의 `결과 새로고침`을 눌러 최신 결과를 확인합니다.
 8. Google Chat PC와 모바일에서 카드, 버튼, 사이트 이동을 각각 확인합니다. 이 마지막 실제 Chat 테스트는 Google Cloud 앱 등록 및 회사 설치 허용 후에만 가능합니다.
+9. Chat에서 `/점심`을 실행해 네 버튼과 이동할 탭을 확인합니다. 식당·날짜 버튼은 함께 정하기 화면의 종류 선택값도 설정해야 합니다.
 
 공식 참고: [Chat 링크 미리보기](https://developers.google.com/workspace/chat/preview-links), [Chat 요청 검증](https://developers.google.com/workspace/chat/verify-requests-from-chat), [테스터 설정](https://developers.google.com/workspace/chat/test-interactive-features).

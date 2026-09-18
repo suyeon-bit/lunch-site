@@ -4,6 +4,7 @@ const SITE = 'https://lunch-site.suyeon-974.workers.dev';
 const ENDPOINT = `${SITE}/api/chat`;
 const CERTS = 'https://www.googleapis.com/oauth2/v3/certs';
 const CHAT_EMAIL = 'chat@system.gserviceaccount.com';
+export const LUNCH_COMMAND_ID = 1;
 let cachedCerts, certsUntil = 0;
 
 const response = (body, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -71,6 +72,37 @@ function voteRows(session) {
 function button(text, url) { return { text, onClick: { openLink: { url } } }; }
 function row(label, value) { return { decoratedText: { topLabel: label, text: escapeHtml(value) } }; }
 
+export function makeLunchCommandCard(user) {
+  const card = { cardsV2: [{ cardId: 'lunch-command-menu', card: {
+    header: { title: '🍴 점심, 뭐 먹지?', subtitle: '원하는 기능을 선택해 주세요' },
+    sections: [{ widgets: [
+      { buttonList: { buttons: [
+        button('새 점약 만들기', `${SITE}/#planning`),
+        button('식당 정하기', `${SITE}/?plan=restaurant#planning`)
+      ] } },
+      { buttonList: { buttons: [
+        button('날짜 정하기', `${SITE}/?plan=calendar#planning`),
+        button('정산하기', `${SITE}/#settle`)
+      ] } }
+    ] }]
+  } }] };
+  if (typeof user?.name === 'string' && /^users\/[^/]+$/.test(user.name)) card.privateMessageViewer = { name: user.name };
+  return card;
+}
+
+function isLunchCommand(event) {
+  if (!event || typeof event !== 'object') return false;
+  if (event.type === 'MESSAGE') {
+    const annotations = Array.isArray(event.message?.annotations) ? event.message.annotations : [];
+    const commands = [event.message?.slashCommand, event.message?.annotation?.slashCommand, ...annotations.map(a => a?.slashCommand)].filter(Boolean);
+    if (commands.length) return commands.some(command => Number(command.commandId) === LUNCH_COMMAND_ID);
+    return (!event.appCommandMetadata?.appCommandType || event.appCommandMetadata.appCommandType === 'SLASH_COMMAND') &&
+      Number(event.appCommandMetadata?.appCommandId) === LUNCH_COMMAND_ID;
+  }
+  return event.type === 'APP_COMMAND' && event.appCommandMetadata?.appCommandType === 'SLASH_COMMAND' &&
+    Number(event.appCommandMetadata.appCommandId) === LUNCH_COMMAND_ID;
+}
+
 export function makeCard(session, id, senderType = 'HUMAN') {
   const url = id ? `${SITE}/?room=${id}` : SITE;
   const widgets = [];
@@ -113,9 +145,10 @@ export async function handleChat(request, env, getSession, verify = verifyChatTo
     if (raw.length > 20000) return response({ error: 'Payload Too Large' }, 413);
     event = JSON.parse(raw);
   } catch { return response({ error: 'Invalid JSON' }, 400); }
+  if (isLunchCommand(event)) return response(makeLunchCommandCard(event.user));
   let room;
-  if (event.type === 'MESSAGE' && typeof event.message?.matchedUrl?.url === 'string') room = roomFromUrl(event.message.matchedUrl.url);
-  else if (event.type === 'CARD_CLICKED' && event.action?.actionMethodName === 'refreshRoom') {
+  if (event?.type === 'MESSAGE' && typeof event.message?.matchedUrl?.url === 'string') room = roomFromUrl(event.message.matchedUrl.url);
+  else if (event?.type === 'CARD_CLICKED' && event.action?.actionMethodName === 'refreshRoom') {
     const id = event.action.parameters?.find(p => p.key === 'room')?.value;
     room = roomFromUrl(`${SITE}/?room=${id}`);
   } else return response({});
