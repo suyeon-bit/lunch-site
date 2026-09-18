@@ -32,10 +32,10 @@
 | 명령어 유형 | Slash command |
 | Slash command name | `/점심` |
 | Description | `점약 만들기, 식당·날짜 정하기, 정산 메뉴 열기` |
-| Command ID | `1` |
+| Command ID | `731` |
 | Open a dialog | 선택하지 않음 |
 
-`1`번 ID를 다른 명령에 이미 사용했다면 그 명령과 충돌하므로 기존 ID를 확인하세요. 이 코드의 `LUNCH_COMMAND_ID`는 `1`입니다. `/점심`은 명령 ID로 인식하며, 문자열이 포함된 일반 메시지는 명령으로 취급하지 않습니다. 명령에 대한 카드는 호출한 사용자에게만 표시하고, 네 버튼은 사이트의 기능 탭을 엽니다. [Google Chat 명령어 설정 문서](https://developers.google.com/workspace/chat/commands)를 참고하세요.
+Command ID는 사용자가 입력하는 숫자가 아니라 Google Chat이 앱에 전달하는 내부 명령 식별자입니다. 사용자가 채팅에 `731`을 입력해도 이 명령이 실행되지는 않습니다. `731`번 ID를 다른 명령에 이미 사용했다면 그 명령과 충돌하므로 기존 ID를 확인하세요. 이 코드의 `LUNCH_COMMAND_ID`는 `731`입니다. `/점심`은 명령 ID로 인식하며, 문자열이 포함된 일반 메시지는 명령으로 취급하지 않습니다. 명령에 대한 카드는 호출한 사용자에게만 표시하고, 네 버튼은 사이트의 기능 탭을 엽니다. [Google Chat 명령어 설정 문서](https://developers.google.com/workspace/chat/commands)를 참고하세요.
 
 Cloudflare에서 별도 Secret이나 D1 migration은 필요하지 않습니다. Google은 Chat 요청에 서명된 ID 토큰을 첨부하고 Worker가 Google 공개키, 발급자, 정확한 엔드포인트 대상, `chat@system.gserviceaccount.com` 이메일과 만료 시간을 검증합니다. 토큰 없이 `/api/chat`을 호출하면 401입니다. GitHub에 인증 비밀을 저장하지 않습니다.
 

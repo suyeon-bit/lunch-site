@@ -4,7 +4,7 @@ const SITE = 'https://lunch-site.suyeon-974.workers.dev';
 const ENDPOINT = `${SITE}/api/chat`;
 const CERTS = 'https://www.googleapis.com/oauth2/v3/certs';
 const CHAT_EMAIL = 'chat@system.gserviceaccount.com';
-export const LUNCH_COMMAND_ID = 1;
+export const LUNCH_COMMAND_ID = 731;
 let cachedCerts, certsUntil = 0;
 
 const response = (body, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });

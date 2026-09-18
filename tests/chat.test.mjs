@@ -104,7 +104,7 @@ test('normal site API and asset routing remain available', async () => {
 });
 
 test('slash command card has four functional site destinations and no preview action', () => {
-  assert.equal(LUNCH_COMMAND_ID, 1);
+  assert.equal(LUNCH_COMMAND_ID, 731);
   const card = makeLunchCommandCard({ name: 'users/12345' });
   assert.deepEqual(card.privateMessageViewer, { name: 'users/12345' });
   assert.equal(card.actionResponse, undefined);
@@ -121,10 +121,10 @@ test('slash command card has four functional site destinations and no preview ac
 test('registered MESSAGE slash command and annotation variants return menu before link preview', async () => {
   const getSession = () => { throw Error('slash commands should not read D1'); };
   const variants = [
-    { message: { slashCommand: { commandId: 1 }, matchedUrl: { url: `${site}/?room=${id}` } } },
-    { message: { annotation: { slashCommand: { commandId: '1' } } } },
-    { message: { annotations: [{ slashCommand: { commandId: 1 } }] } },
-    { message: {}, appCommandMetadata: { appCommandType: 'SLASH_COMMAND', appCommandId: 1 } }
+    { message: { slashCommand: { commandId: 731 }, matchedUrl: { url: `${site}/?room=${id}` } } },
+    { message: { annotation: { slashCommand: { commandId: '731' } } } },
+    { message: { annotations: [{ slashCommand: { commandId: 731 } }] } },
+    { message: {}, appCommandMetadata: { appCommandType: 'SLASH_COMMAND', appCommandId: 731 } }
   ];
   for (const variant of variants) {
     const body = await (await handleChat(req({ type: 'MESSAGE', user: { name: 'users/12345' }, ...variant }), { DB: {} }, getSession, async () => true)).json();
@@ -134,13 +134,15 @@ test('registered MESSAGE slash command and annotation variants return menu befor
 });
 
 test('APP_COMMAND metadata uses slash type and exact ID, with authentication gate', async () => {
-  const command = { type: 'APP_COMMAND', appCommandMetadata: { appCommandId: 1, appCommandType: 'SLASH_COMMAND' }, user: { name: 'users/12345' } };
+  const command = { type: 'APP_COMMAND', appCommandMetadata: { appCommandId: 731, appCommandType: 'SLASH_COMMAND' }, user: { name: 'users/12345' } };
   const db = { DB: {} }, noRead = () => { throw Error('unexpected D1 read'); };
   assert.equal((await handleChat(req(command), db, noRead)).status, 401);
   assert.equal((await (await handleChat(req(command), db, noRead, async () => true)).json()).cardsV2[0].cardId, 'lunch-command-menu');
   for (const invalid of [
+    { type: 'MESSAGE', message: { text: '731' } },
+    { type: 'MESSAGE', message: { slashCommand: { commandId: 1 } } },
     { type: 'MESSAGE', message: { slashCommand: { commandId: 2 } } },
     { ...command, appCommandMetadata: { appCommandId: 2, appCommandType: 'SLASH_COMMAND' } },
-    { ...command, appCommandMetadata: { appCommandId: 1, appCommandType: 'QUICK_COMMAND' } }
+    { ...command, appCommandMetadata: { appCommandId: 731, appCommandType: 'QUICK_COMMAND' } }
   ]) assert.deepEqual(await (await handleChat(req(invalid), db, noRead, async () => true)).json(), {});
 });
