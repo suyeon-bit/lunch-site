@@ -1,0 +1,104 @@
+import assert from 'node:assert/strict';
+import { webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import { handleChat, makeCard, roomFromUrl, verifyChatToken } from '../src/chat.js';
+import { restaurantNames } from '../src/restaurant-names.js';
+import worker from '../src/worker.js';
+
+const site = 'https://lunch-site.suyeon-974.workers.dev';
+const id = 'abc123def456';
+const session = (kind = 'restaurant', participants = []) => ({ id, kind, title: '금요일 점심', headcount: 5, participants, final_restaurant: null, final_date: null });
+const person = (likes = [], dislikes = [], dates = []) => ({ likes, dislikes, dates });
+const cardText = result => JSON.stringify(result.cardsV2);
+const event = (url, type = 'MESSAGE') => ({ type, message: { matchedUrl: { url }, sender: { type: 'HUMAN' } } });
+const req = (body, headers = {}) => new Request(`${site}/api/chat`, { method: 'POST', headers, body: JSON.stringify(body) });
+
+test('restaurant IDs match existing web list', () => {
+  const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
+  const source = html.match(/const restaurants=\[([\s\S]*?)\]\.map\(/)?.[1];
+  assert.ok(source);
+  const names = [...source.matchAll(/\['([^']+)'/g)].map(x => x[1]);
+  assert.deepEqual(restaurantNames, names);
+});
+
+test('only canonical homepage or single valid room is previewed', () => {
+  assert.deepEqual(roomFromUrl(`${site}/`), { id: null });
+  assert.deepEqual(roomFromUrl(`${site}/?room=${id}`), { id });
+  for (const url of [`http://lunch-site.suyeon-974.workers.dev/?room=${id}`, `${site}.evil.test/?room=${id}`, `${site}/api/sessions/${id}`, `${site}/?room=bad`, `${site}/?room=${id}&room=${id}`]) assert.equal(roomFromUrl(url), null);
+});
+
+test('zero participants and missing room have truthful cards', () => {
+  const empty = cardText(makeCard(session(), id));
+  assert.match(empty, /0 \/ 5명/);
+  assert.match(empty, /아직 투표가 없어요/);
+  assert.match(cardText(makeCard(null, id)), /모임을 찾을 수 없어요/);
+  assert.match(cardText(makeCard(null, null)), /점심 약속을 만들어 보세요/);
+});
+
+test('restaurant tally follows site rule: dislikes exclude candidate', () => {
+  const result = cardText(makeCard(session('restaurant', [person([1, 2]), person([1, 2]), person([1], [2])]), id));
+  assert.match(result, /3 \/ 5명/);
+  assert.match(result, /곰국시집 · 3표/);
+  assert.doesNotMatch(result, /공차 명동점 · 2표/);
+  assert.match(result, /식당 투표/);
+});
+
+test('date tally and final decision', () => {
+  const s = session('calendar', [person([], [], ['2026-09-22', '2026-09-23']), person([], [], ['2026-09-22'])]);
+  const result = cardText(makeCard(s, id));
+  assert.match(result, /2026-09-22 · 2표/);
+  assert.match(result, /2026-09-23 · 1표/);
+  assert.match(result, /날짜 투표/);
+  s.final_date = '2026-09-22';
+  assert.match(cardText(makeCard(s, id)), /확정: 2026-09-22/);
+});
+
+test('unverified requests never read D1; verified previews and refresh read current room', async () => {
+  let reads = 0;
+  const getSession = async (_, key) => { reads++; assert.equal(key, id); return session('calendar', [person([], [], ['2026-09-22'])]); };
+  const noAuth = await handleChat(req(event(`${site}/?room=${id}`)), { DB: {} }, getSession);
+  assert.equal(noAuth.status, 401);
+  assert.equal(reads, 0);
+  const preview = await handleChat(req(event(`${site}/?room=${id}`)), { DB: {} }, getSession, async () => true);
+  assert.equal(preview.status, 200);
+  assert.match(cardText(await preview.json()), /2026-09-22/);
+  const refresh = await handleChat(req({ type: 'CARD_CLICKED', action: { actionMethodName: 'refreshRoom', parameters: [{ key: 'room', value: id }] }, message: { sender: { type: 'HUMAN' } } }), { DB: {} }, getSession, async () => true);
+  assert.equal((await refresh.json()).actionResponse.type, 'UPDATE_USER_MESSAGE_CARDS');
+  assert.equal(reads, 2);
+});
+
+test('invalid event or room never reads D1', async () => {
+  const getSession = () => { throw Error('unexpected D1 read'); };
+  assert.deepEqual(await (await handleChat(req(event(`${site}/?room=none`)), { DB: {} }, getSession, async () => true)).json(), {});
+  assert.deepEqual(await (await handleChat(req(event(`${site}/?room=${id}`, 'ADDED_TO_SPACE')), { DB: {} }, getSession, async () => true)).json(), {});
+  assert.deepEqual(await (await handleChat(req(event(`${site}/`)), { DB: {} }, getSession, async () => true)).json().then(x => x.cardsV2[0].card.header.title), '🍴 오늘 점심 어디 갈까요?');
+});
+
+test('real verification rejects absent or malformed bearer token', async () => {
+  assert.equal(await verifyChatToken(new Request(`${site}/api/chat`)), false);
+  assert.equal(await verifyChatToken(new Request(`${site}/api/chat`, { headers: { Authorization: 'Bearer fake.fake.fake' } })), false);
+});
+
+test('real verification accepts signed Google-shaped ID token and rejects wrong audience', async () => {
+  const keypair = await webcrypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
+  const jwk = { ...await webcrypto.subtle.exportKey('jwk', keypair.publicKey), kid: 'test-key', alg: 'RS256', use: 'sig' };
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ keys: [jwk] }, { headers: { 'cache-control': 'max-age=300' } });
+  const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const sign = async aud => {
+    const input = `${enc({ alg: 'RS256', kid: 'test-key' })}.${enc({ aud, iss: 'https://accounts.google.com', email: 'chat@system.gserviceaccount.com', email_verified: true, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300 })}`;
+    const signature = await webcrypto.subtle.sign('RSASSA-PKCS1-v1_5', keypair.privateKey, Buffer.from(input));
+    return new Request(`${site}/api/chat`, { headers: { Authorization: `Bearer ${input}.${Buffer.from(signature).toString('base64url')}` } });
+  };
+  try {
+    assert.equal(await verifyChatToken(await sign(`${site}/api/chat`)), true);
+    assert.equal(await verifyChatToken(await sign(`${site}/wrong`)), false);
+  } finally { globalThis.fetch = previousFetch; }
+});
+
+test('normal site API and asset routing remain available', async () => {
+  const env = { DB: { prepare: () => ({ bind: () => ({ first: async () => null }) }) }, ASSETS: { fetch: async () => new Response('site') } };
+  assert.equal(await (await worker.fetch(new Request(site), env)).text(), 'site');
+  assert.equal((await worker.fetch(new Request(`${site}/api/sessions/${id}`), env)).status, 404);
+});

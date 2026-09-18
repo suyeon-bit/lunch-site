@@ -1,3 +1,4 @@
+import { handleChat } from './chat.js';
 const json = (body, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const error = (message, status = 400) => json({ error: message }, status);
 const places = ['신관 15층 엘베 앞', '본관 15층 엘베 앞', '신관 1층 로비', '본관 1층 로비'];
@@ -18,6 +19,7 @@ async function getSession(db, id) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/api/chat') return handleChat(request, env, getSession);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
       if (url.pathname === '/api/sessions' && request.method === 'POST') {
