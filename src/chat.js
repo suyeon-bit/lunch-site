@@ -3,7 +3,7 @@ import { restaurantNames } from './restaurant-names.js';
 const SITE = 'https://lunch-site.suyeon-974.workers.dev';
 const ENDPOINT = `${SITE}/api/chat`;
 const CERTS = 'https://www.googleapis.com/oauth2/v3/certs';
-const CHAT_EMAIL = 'chat@system.gserviceaccount.com';
+const CHAT_EMAIL = 'service-183841371578@gcp-sa-gsuiteaddons.iam.gserviceaccount.com';
 export const LUNCH_COMMAND_ID = 731;
 let cachedCerts, certsUntil = 0;
 

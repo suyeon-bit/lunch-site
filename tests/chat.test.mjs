@@ -87,7 +87,7 @@ test('real verification accepts signed Google-shaped ID token and rejects wrong 
   globalThis.fetch = async () => Response.json({ keys: [jwk] }, { headers: { 'cache-control': 'max-age=300' } });
   const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
   const sign = async aud => {
-    const input = `${enc({ alg: 'RS256', kid: 'test-key' })}.${enc({ aud, iss: 'https://accounts.google.com', email: 'chat@system.gserviceaccount.com', email_verified: true, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300 })}`;
+    const input = `${enc({ alg: 'RS256', kid: 'test-key' })}.${enc({ aud, iss: 'https://accounts.google.com', email: 'service-183841371578@gcp-sa-gsuiteaddons.iam.gserviceaccount.com', email_verified: true, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300 })}`;
     const signature = await webcrypto.subtle.sign('RSASSA-PKCS1-v1_5', keypair.privateKey, Buffer.from(input));
     return new Request(`${site}/api/chat`, { headers: { Authorization: `Bearer ${input}.${Buffer.from(signature).toString('base64url')}` } });
   };
